@@ -7,6 +7,7 @@ import PyPDF2
 from docx import Document
 import io 
 import base64 # <-- NEW: For decoding Base64 buffer
+import os
 
 # --- Initialization ---
 app = Flask(__name__)
@@ -130,4 +131,10 @@ api.add_resource(ResumeAnalysis, '/extract_skills')
 
 # --- Run Server ---
 if __name__ == '__main__':
-    app.run(port=5001, debug=True)
+    # Get the dynamic port provided by the hosting environment, defaulting to 5001 locally
+    port = int(os.environ.get('PORT', 5001)) 
+    # Must bind to 0.0.0.0 to listen on all public network interfaces
+    host = '0.0.0.0'
+
+    # IMPORTANT: Set debug=False for deployment environments
+    app.run(host=host, port=port, debug=False)

@@ -37,5 +37,8 @@ app.get("/", (req, res) => {
 app.use(errorHandler);
 
 const PORT = process.env.PORT || 5000;
+const HOST = "0.0.0.0"; // Essential for cloud deployment
 
-app.listen(PORT, () => console.log(`Server started on port ${PORT}`));
+app.listen(PORT, HOST, () =>
+  console.log(`Server started on http://${HOST}:${PORT}`)
+);
