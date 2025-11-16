@@ -1,0 +1,16 @@
+# Dependencies
+/node_modules
+
+# Environment variables
+.env
+
+# Build artifacts
+/client/build
+
+# IDE files
+.vscode
+
+# Python files (for ai_service)
+__pycache__
+*.pyc
+/ai_service/venv
