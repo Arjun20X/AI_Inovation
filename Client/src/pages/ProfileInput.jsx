@@ -1,35 +1,33 @@
-// client/src/pages/ProfileInput.jsx (UPDATED FOR FILE UPLOAD)
+// client/src/pages/ProfileInput.jsx (UPDATED FOR DYNAMIC JOB TITLE INPUT)
 
 import React, { useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../utils/axiosConfig";
 import { useAuth } from "../context/AuthContext";
 import { toast } from "sonner";
-import { Upload, FileText, XCircle, Trash2 } from "lucide-react";
+import { Upload, FileText, Trash2, Search } from "lucide-react";
 
-// Define the available roles for the dropdown (must match targetSkills.js keys)
+// NOTE: The hardcoded list is removed from the FE, replaced by user input.
+// We keep this placeholder just to avoid breaking the DashboardPage helper.
 const availableRoles = [
   { key: "MERN_DEV", label: "MERN Stack Developer" },
   { key: "DATA_ANALYST", label: "Data Science / Python Analyst" },
   { key: "DEVOPS_ENG", label: "Cloud / DevOps Engineer" },
 ];
 
-// Helper to get role label
-const getRoleLabel = (key) =>
-  availableRoles.find((r) => r.key === key)?.label || key;
-
 export default function ProfileInput() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
-  // State for either text input or file input (only one can be used at a time)
   const [resumeText, setResumeText] = useState("");
   const [resumeFile, setResumeFile] = useState(null);
 
-  const [targetRole, setTargetRole] = useState("MERN_DEV");
+  // NEW STATE: User inputs the desired job title
+  const [targetJobTitle, setTargetJobTitle] = useState("Senior React Engineer");
+
   const [isLoading, setIsLoading] = useState(false);
 
-  // Handler for drag and drop / file input
+  // Handler for file input remains the same...
   const handleFileChange = useCallback((e) => {
     const file = e.target.files ? e.target.files[0] : null;
     if (file) {
@@ -45,25 +43,9 @@ export default function ProfileInput() {
         return;
       }
       setResumeFile(file);
-      setResumeText(""); // Clear text area if file is selected
+      setResumeText("");
     }
   }, []);
-
-  // client/src/pages/ProfileInput.jsx (FIXED handleSubmit logic)
-
-  const convertFileToBase64 = (file) => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = () => {
-        // Reader result is "data:application/pdf;base64,..."
-        // We only want the base64 string after the comma
-        const base64String = reader.result.split(",")[1];
-        resolve(base64String);
-      };
-      reader.onerror = (error) => reject(error);
-    });
-  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -75,37 +57,37 @@ export default function ProfileInput() {
       });
       return;
     }
+    if (!targetJobTitle.trim()) {
+      toast.error("Target Goal Required", {
+        description: "Please specify the job title you are targeting.",
+      });
+      return;
+    }
 
     setIsLoading(true);
     let requestData;
-    const url = "/skills/analyze"; // Fixed URL
+    const url = "/skills/analyze";
 
     try {
       if (resumeFile) {
         // --- FILE SUBMISSION PATH (Base64 Encoding) ---
-
-        // 1. Convert file to Base64 string
         const fileBufferBase64 = await convertFileToBase64(resumeFile);
-
-        // 2. Package data as JSON (Express handles this easily)
         requestData = {
           fileBuffer: fileBufferBase64,
           filename: resumeFile.name,
-          targetRole: targetRole,
+          targetJobTitle: targetJobTitle, // Send target title
         };
       } else {
         // --- TEXT SUBMISSION PATH (JSON) ---
         requestData = {
           resumeText: textInput,
-          targetRole: targetRole,
+          targetJobTitle: targetJobTitle, // Send target title
         };
       }
 
-      // --- SINGLE API CALL (Always sends JSON to Express) ---
-      // Axios automatically sets Content-Type: application/json here.
+      // --- SINGLE API CALL ---
       const response = await api.post(url, requestData);
 
-      // Store the results in session storage
       sessionStorage.setItem("analysisResults", JSON.stringify(response.data));
 
       toast.success("Analysis Complete!", {
@@ -113,7 +95,6 @@ export default function ProfileInput() {
       });
       navigate("/dashboard");
     } catch (error) {
-      // ... (Error handling logic) ...
       console.error("Analysis error:", error);
       const status = error.response?.status;
       let errorMessage =
@@ -135,12 +116,25 @@ export default function ProfileInput() {
     }
   };
 
+  // Helper function to read file into Base64 (needed for file upload)
+  const convertFileToBase64 = (file) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => {
+        const base64String = reader.result.split(",")[1];
+        resolve(base64String);
+      };
+      reader.onerror = (error) => reject(error);
+    });
+  };
+
   const handleLogout = () => {
     logout();
     navigate("/login");
   };
 
-  // Visual helper for file drag-and-drop area
+  // Visual helper for file drag-and-drop area (remains the same)
   const DragDropArea = () => (
     <label
       htmlFor="file-upload"
@@ -188,44 +182,42 @@ export default function ProfileInput() {
 
       <div className="max-w-4xl mx-auto bg-slate-800 p-8 rounded-2xl shadow-2xl border border-slate-700">
         <h2 className="text-2xl font-bold mb-4 text-slate-100">
-          Define Your Career Goal
+          Dynamic Skill Analysis
         </h2>
         <p className="text-slate-400 mb-6">
-          Achieve the most accurate analysis by uploading your resume or pasting
-          your skill summary.
+          Define your target role, and the AI will analyze current job market
+          needs before scanning your profile.
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Target Role Dropdown */}
+          {/* Target Role Input */}
           <div>
             <label
-              htmlFor="targetRole"
+              htmlFor="targetJobTitle"
               className="block text-sm font-medium text-slate-200 mb-2"
             >
-              1. Select Your Target Role
+              1. Enter Your Target Job Title
             </label>
-            <select
-              id="targetRole"
-              value={targetRole}
-              onChange={(e) => setTargetRole(e.target.value)}
-              className="w-full p-3 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:ring-blue-500 focus:border-blue-500"
-              disabled={isLoading}
-            >
-              {availableRoles.map((role) => (
-                <option key={role.key} value={role.key}>
-                  {role.label}
-                </option>
-              ))}
-            </select>
+            <div className="relative">
+              <Search className="absolute left-3 top-3.5 w-5 h-5 text-slate-500 pointer-events-none" />
+              <input
+                id="targetJobTitle"
+                type="text"
+                value={targetJobTitle}
+                onChange={(e) => setTargetJobTitle(e.target.value)}
+                placeholder="Example: Cloud DevOps Engineer"
+                className="w-full pl-10 pr-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                disabled={isLoading}
+              />
+            </div>
           </div>
 
-          {/* File Upload/Text Area Switch */}
+          {/* File Upload/Text Area Switch (Remains the same) */}
           <div>
             <label className="block text-sm font-medium text-slate-200 mb-2">
               2. Provide Skills Data (File OR Text)
             </label>
 
-            {/* File Upload Section */}
             <DragDropArea />
 
             {resumeFile && (
@@ -244,7 +236,6 @@ export default function ProfileInput() {
               <hr className="flex-grow border-slate-700" />
             </div>
 
-            {/* Text Area Section */}
             <textarea
               id="resumeText"
               value={resumeText}
@@ -255,14 +246,18 @@ export default function ProfileInput() {
               rows="6"
               placeholder="Paste your skills summary here if you don't have a file..."
               className="w-full p-4 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-slate-500 resize-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              disabled={isLoading || !!resumeFile} // Disable if a file is uploaded
+              disabled={isLoading || !!resumeFile}
             />
           </div>
 
           {/* Submit Button */}
           <button
             type="submit"
-            disabled={isLoading || (!resumeText.trim() && !resumeFile)}
+            disabled={
+              isLoading ||
+              (!resumeText.trim() && !resumeFile) ||
+              !targetJobTitle.trim()
+            }
             className={`w-full py-3 px-4 rounded-lg font-bold text-lg transition-all duration-300 ${
               isLoading
                 ? "bg-blue-600/50 text-slate-400 cursor-not-allowed flex items-center justify-center gap-3"
@@ -272,7 +267,7 @@ export default function ProfileInput() {
             {isLoading ? (
               <>
                 <div className="w-5 h-5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-                <span>Analyzing Data...</span>
+                <span>Analyzing Job Market...</span>
               </>
             ) : (
               "Analyze Skills & Generate Personalized Roadmap"
