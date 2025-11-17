@@ -1,15 +1,13 @@
 // client/src/utils/axiosConfig.js (FINAL DEPLOYMENT VERSION)
-
 import axios from "axios";
 
-// Determine the correct base URL based on the environment.
-// 1. In production (on Vercel), this variable is set to the full Express URL (e.g., https://skill-api-xyz.onrender.com/api).
-// 2. In local development, it defaults to '/api' to use the local proxy.
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api";
+// TEMPORARY FIX FOR DEPLOYMENT AMBIGUITY: Use the absolute deployed URL
+// IMPORTANT: REPLACE THIS with your actual Render Express URL!
+const API_BASE_URL = "https://ai-skill-gap-backend.onrender.com/api";
+// ^^^^^^^^^^^ Ensure you use the correct HTTPS URL and include /api
 
 // 1. Create a custom Axios instance
 const api = axios.create({
-  // Use the environment-specific base URL
   baseURL: API_BASE_URL,
   headers: {
     "Content-Type": "application/json",
