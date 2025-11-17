@@ -78,26 +78,34 @@ def extract_skills_from_text(text):
 
 class ResumeAnalysis(Resource):
     def post(self):
-        """Handles POST request containing either JSON text or Base64 file buffer."""
         if NLP is None:
              return jsonify({"error": "NLP service is unavailable"}), 500
 
         try:
+            # Get the JSON payload sent by the Express orchestrator
             data = request.get_json(force=True)
             text_content = ""
             
-            # --- PATH A: JSON Text Submission (Original MVP) ---
-            if 'resumeText' in data:
-                text_content = data['resumeText']
-            
-            # --- PATH B: Base64 File Submission (NEW Multer path) ---
-            elif 'fileBuffer' in data:
-                file_buffer_base64 = data['fileBuffer']
+            # --- Check essential input ---
+            if not data or 'targetRole' not in data:
+                return jsonify({"error": "Missing essential target role data."}), 400
+
+            # --- PATH A: Base64 File Submission (NEW Multer path) ---
+            if 'fileBuffer' in data:
+                file_buffer_base64 = data.get('fileBuffer')
                 filename = data.get('filename', '')
                 
+                if not file_buffer_base64 or not filename:
+                    return jsonify({"error": "Incomplete file data sent."}), 400
+
                 # 1. Decode Base64 string back into bytes
-                file_bytes = base64.b64decode(file_buffer_base64)
-                file_stream = io.BytesIO(file_bytes)
+                try:
+                    # Decoding is CPU/Memory intensive
+                    file_bytes = base64.b64decode(file_buffer_base64)
+                    file_stream = io.BytesIO(file_bytes)
+                except Exception as e:
+                    print(f"Base64 Decode Failed: {e}")
+                    return jsonify({"error": "File decode failed (file likely too large for memory limit)."}), 400
 
                 # 2. Extract text based on file type
                 if filename.lower().endswith('.pdf'):
@@ -107,12 +115,17 @@ class ResumeAnalysis(Resource):
                 else:
                     return jsonify({"error": "Unsupported file format sent from Express."}), 400
             
+            # --- PATH B: JSON Text Submission (Original MVP) ---
+            elif 'resumeText' in data:
+                text_content = data.get('resumeText', '')
+            
             else:
                 return jsonify({"error": "Missing 'resumeText' or file data in JSON payload."}), 400
             
             
             if not text_content:
-                return jsonify({"error": "Could not extract or read text from the input."}), 400
+                print("Extraction returned empty text.")
+                return jsonify({"error": "Could not extract or read text from the input. (Is the file empty?)"}), 400
 
             # 3. Extract Skills from content
             extracted_skills = extract_skills_from_text(text_content)
@@ -120,11 +133,14 @@ class ResumeAnalysis(Resource):
             return jsonify({
                 "skills": extracted_skills,
                 "raw_text_length": len(text_content),
+                "targetRole": data['targetRole'] # Pass back targetRole for Express context
             })
 
         except Exception as e:
-            print(f"Python Processing Error: {e}")
-            return jsonify({"error": "An internal Python error occurred during processing."}), 500
+            # Catch all Python runtime errors, which often trigger the 502
+            print(f"CRITICAL PYTHON RUNTIME ERROR: {e}") 
+            # Force a generic 500 status to Express
+            return jsonify({"error": "Critical internal error processing input (Memory/CPU crash)."}), 500
 
 
 # --- API Endpoints ---
