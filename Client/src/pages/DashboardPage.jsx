@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import SkillGraph from "../components/SkillGraph";
 import {
   CheckCircle,
   XCircle,
@@ -18,6 +19,17 @@ const availableRoles = [
   { key: "DATA_ANALYST", label: "Data Science / Python Analyst" },
   { key: "DEVOPS_ENG", label: "Cloud / DevOps Engineer" },
 ];
+
+const formatSkill = (skill) => {
+  // Function to ensure skills like 'rest apis' display as 'Rest Apis'
+  if (skill.includes(" ") || skill.toLowerCase() === skill) {
+    return skill
+      .split(" ")
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(" ");
+  }
+  return skill;
+};
 
 export default function DashboardPage() {
   const { user, logout } = useAuth();
@@ -38,16 +50,6 @@ export default function DashboardPage() {
     }
   }, [navigate]);
 
-  const formatSkill = (skill) => {
-    if (skill.includes(" ") || skill.toLowerCase() === skill) {
-      return skill
-        .split(" ")
-        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-        .join(" ");
-    }
-    return skill;
-  };
-
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center text-white">
@@ -59,18 +61,17 @@ export default function DashboardPage() {
 
   if (!results) return null;
 
+  // Destructure results
   const {
     targetRole,
     userSkills,
     missingSkills,
-    learningRoadmap, // This is now a JSON object!
+    learningRoadmap,
+    requiredSkills,
   } = results;
 
-  const targetLabel =
-    availableRoles.find((r) => r.key === targetRole)?.label ||
-    targetRole.replace(/_/g, " ");
+  const targetLabel = targetRole;
 
-  // Check if the roadmap is a structured object or the error fallback text
   const isStructured =
     learningRoadmap &&
     learningRoadmap.steps &&
@@ -113,17 +114,43 @@ export default function DashboardPage() {
       <main className="max-w-6xl mx-auto">
         <div className="bg-slate-800 p-8 rounded-xl shadow-2xl border border-slate-700 mb-8">
           <h2 className="text-3xl font-extrabold text-white mb-2">
-            Personalized Analysis for {targetLabel}
+            Analysis for "{targetLabel}"
           </h2>
           <p className="text-slate-400">
-            Welcome back, {user?.name}! Here is your custom skill gap analysis
-            and generated learning roadmap.
+            Welcome back, {user?.name}! Here is your dynamic skill gap analysis.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* --- GRAPH VISUALIZATION AREA --- */}
+        {/* Pass data to the graph component, ensuring consistency in skill naming */}
+        <SkillGraph
+          targetRole={targetRole}
+          requiredSkills={requiredSkills.map((s) => formatSkill(s))}
+          userSkills={userSkills.map((s) => formatSkill(s))}
+          missingSkills={missingSkills.map((s) => formatSkill(s))}
+        />
+        {/* --------------------------------- */}
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mt-8">
           {/* Missing/Current Skills Summary (Left Column) */}
           <div className="lg:col-span-1 space-y-6">
+            {/* Dynamically Required Skills List */}
+            <div className="bg-slate-700/40 p-6 rounded-xl border border-slate-600 shadow-inner">
+              <h3 className="text-xl font-bold text-slate-300 mb-4 flex items-center gap-2">
+                Required Skills (Dynamic)
+              </h3>
+              <ul className="flex flex-wrap gap-2">
+                {requiredSkills.map((skill, index) => (
+                  <li
+                    key={index}
+                    className="px-3 py-1 bg-blue-700/50 text-blue-200 text-sm rounded-full font-medium"
+                  >
+                    {formatSkill(skill)}
+                  </li>
+                ))}
+              </ul>
+            </div>
+
             {/* Missing Skills */}
             <div className="bg-red-900/40 p-6 rounded-xl border border-red-700/50 shadow-inner">
               <h3 className="text-xl font-bold text-red-300 mb-4 flex items-center gap-2">
