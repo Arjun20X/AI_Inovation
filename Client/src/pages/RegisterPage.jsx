@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import axios from "axios";
+import api from "../utils/axiosConfig";
 import { useAuth } from "../context/AuthContext";
 // Assuming you have a utility function for Tailwind class names (cn)
 const cn = (...classes) => classes.filter(Boolean).join(" ");
@@ -90,7 +91,7 @@ export default function RegisterPage() {
 
     try {
       // Axios request is cleaner and automatically handles JSON stringify/parse
-      const { data } = await axios.post("/api/auth/register", {
+      const { data } = await api.post("/auth/register", {
         name: formData.name,
         email: formData.email,
         password: formData.password,

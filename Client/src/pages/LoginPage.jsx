@@ -4,6 +4,7 @@ import { Mail, Lock, Eye, EyeOff, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import axios from "axios";
 import { useAuth } from "../context/AuthContext";
+import api from "../utils/axiosConfig";
 
 // Utility function for Tailwind class names
 const cn = (...classes) => classes.filter(Boolean).join(" ");
@@ -58,7 +59,7 @@ export default function LoginPage() {
 
     try {
       // Note: The /api/auth/login path relies on a proxy being set up in vite.config.js or package.json
-      const { data } = await axios.post("/api/auth/login", {
+      const { data } = await api.post("/auth/login", {
         email: formData.email,
         password: formData.password,
       });
