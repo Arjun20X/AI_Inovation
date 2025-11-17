@@ -1,12 +1,16 @@
-// client/src/utils/axiosConfig.js
+// client/src/utils/axiosConfig.js (FINAL DEPLOYMENT VERSION)
 
 import axios from "axios";
 
+// Determine the correct base URL based on the environment.
+// 1. In production (on Vercel), this variable is set to the full Express URL (e.g., https://skill-api-xyz.onrender.com/api).
+// 2. In local development, it defaults to '/api' to use the local proxy.
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api";
+
 // 1. Create a custom Axios instance
 const api = axios.create({
-  // IMPORTANT: This relies on the 'proxy' setting in client/package.json
-  // or vite.config.js to direct /api calls to http://localhost:5000
-  baseURL: "/api",
+  // Use the environment-specific base URL
+  baseURL: API_BASE_URL,
   headers: {
     "Content-Type": "application/json",
   },
@@ -28,4 +32,3 @@ api.interceptors.request.use((config) => {
 });
 
 export default api;
-
