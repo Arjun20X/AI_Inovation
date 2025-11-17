@@ -37,12 +37,14 @@ except Exception as e:
 # --- Helper Functions for File Parsing ---
 
 def extract_text_from_pdf(file_stream):
-    # ... (content remains the same) ...
+    """Reads text from a PDF file stream using the optimized reader."""
     try:
-        reader = PyPDF2.PdfReader(file_stream)
+        # Use PdfReader (faster and better for memory in streams)
+        reader = PyPDF2.PdfReader(file_stream) 
         text = ""
         for page in reader.pages:
-            text += page.extract_text() or ""
+            # Add a check to handle empty pages gracefully
+            text += page.extract_text() or "" 
         return text
     except Exception as e:
         print(f"PDF extraction error: {e}")
