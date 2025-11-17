@@ -1,9 +1,8 @@
-// client/src/pages/DashboardPage.jsx (UPDATED FOR STRUCTURED JSON)
+// client/src/pages/DashboardPage.jsx (FINAL ACCORDION VERSION)
 
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import SkillGraph from "../components/SkillGraph";
 import {
   CheckCircle,
   XCircle,
@@ -11,31 +10,131 @@ import {
   Loader2,
   BookOpen,
   ExternalLink,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { toast } from "sonner";
+import SkillGraph from "../components/SkillGraph"; // <-- IMPORT GRAPH COMPONENT
 
-const availableRoles = [
-  { key: "MERN_DEV", label: "MERN Stack Developer" },
-  { key: "DATA_ANALYST", label: "Data Science / Python Analyst" },
-  { key: "DEVOPS_ENG", label: "Cloud / DevOps Engineer" },
-];
-
+// Helper to format skills text for display
 const formatSkill = (skill) => {
-  // Function to ensure skills like 'rest apis' display as 'Rest Apis'
-  if (skill.includes(" ") || skill.toLowerCase() === skill) {
-    return skill
+  const formatted = skill.replace(/_/g, " ").toLowerCase();
+  if (formatted.includes(" ")) {
+    return formatted
       .split(" ")
       .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
       .join(" ");
   }
-  return skill;
+  return formatted.charAt(0).toUpperCase() + formatted.slice(1);
 };
+
+// --- ACCORDION COMPONENTS ---
+
+// Graph Wrapper with Toggle
+const GraphAccordion = ({ isVisible, toggleVisibility, results }) => {
+  const { targetRole, userSkills, missingSkills, requiredSkills } = results;
+
+  // Normalize data to UPPERCASE here before passing to D3
+  const graphProps = {
+    targetRole: targetRole,
+    requiredSkills: requiredSkills.map((s) => s.toUpperCase()),
+    userSkills: userSkills.map((s) => s.toUpperCase()),
+    missingSkills: missingSkills.map((s) => s.toUpperCase()),
+  };
+
+  return (
+    <div className="mt-8 bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-xl">
+      <div
+        className="flex justify-between items-center cursor-pointer"
+        onClick={toggleVisibility}
+      >
+        <h3 className="text-xl font-bold text-white">
+          Dynamic Skill Relationship Map
+        </h3>
+        {isVisible ? (
+          <ChevronUp className="w-5 h-5 text-slate-400" />
+        ) : (
+          <ChevronDown className="w-5 h-5 text-slate-400" />
+        )}
+      </div>
+
+      {isVisible && (
+        <div className="pt-4">
+          <SkillGraph {...graphProps} />
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Roadmap Wrapper with Toggle
+const RoadmapAccordion = ({ isVisible, toggleVisibility, roadmapData }) => (
+  <div className="bg-slate-700 p-8 rounded-xl border border-blue-500/50 shadow-xl">
+    <div
+      className="flex justify-between items-center cursor-pointer"
+      onClick={toggleVisibility}
+    >
+      <h3 className="text-2xl font-bold text-blue-300 flex items-center gap-3">
+        <BookOpen className="w-7 h-7" />
+        Personalized Learning Roadmap
+      </h3>
+      {isVisible ? (
+        <ChevronUp className="w-5 h-5 text-slate-400" />
+      ) : (
+        <ChevronDown className="w-5 h-5 text-slate-400" />
+      )}
+    </div>
+
+    {isVisible && (
+      <div className="pt-4 mt-4 border-t border-slate-600">
+        {/* Roadmap Summary */}
+        <p className="text-slate-200 mb-6 italic">{roadmapData.summary}</p>
+
+        {/* Roadmap Steps */}
+        <div className="space-y-6">
+          {roadmapData.steps.map((step, index) => (
+            <div key={index} className="border-l-4 border-blue-400 pl-4">
+              <h4 className="text-xl font-semibold text-white mb-2">
+                Step {index + 1}: {formatSkill(step.skill)} Mastery
+              </h4>
+              <p className="text-slate-300 mb-2">{step.goal}</p>
+              {step.resourceURL && (
+                <a
+                  href={step.resourceURL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 text-blue-300 hover:text-blue-200 text-sm font-medium transition-colors"
+                >
+                  {step.resourceTitle || "View Resource"}
+                  <ExternalLink className="w-4 h-4" />
+                </a>
+              )}
+            </div>
+          ))}
+        </div>
+
+        {/* Roadmap Conclusion */}
+        <div className="mt-8 pt-4 border-t border-slate-600">
+          <h4 className="text-lg font-semibold text-slate-300 mb-2">
+            Next Steps
+          </h4>
+          <p className="text-slate-400">{roadmapData.conclusion}</p>
+        </div>
+      </div>
+    )}
+  </div>
+);
+// --- END ACCORDION COMPONENTS ---
 
 export default function DashboardPage() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [results, setResults] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  // State for toggling
+  const [isGraphOpen, setIsGraphOpen] = useState(true);
+  const [isRoadmapOpen, setIsRoadmapOpen] = useState(true);
 
   useEffect(() => {
     const storedResults = sessionStorage.getItem("analysisResults");
@@ -50,7 +149,7 @@ export default function DashboardPage() {
     }
   }, [navigate]);
 
-  if (loading) {
+  if (loading || !results) {
     return (
       <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center text-white">
         <Loader2 className="w-10 h-10 animate-spin text-blue-500 mb-4" />
@@ -59,9 +158,6 @@ export default function DashboardPage() {
     );
   }
 
-  if (!results) return null;
-
-  // Destructure results
   const {
     targetRole,
     userSkills,
@@ -72,6 +168,7 @@ export default function DashboardPage() {
 
   const targetLabel = targetRole;
 
+  // Handle error fallback from AI
   const isStructured =
     learningRoadmap &&
     learningRoadmap.steps &&
@@ -79,17 +176,15 @@ export default function DashboardPage() {
   const roadmapData = isStructured
     ? learningRoadmap
     : {
-        summary:
-          learningRoadmap.summary ||
-          "Error: Failed to generate structured roadmap.",
+        summary: learningRoadmap.summary, // Use the error message string
         steps: [],
         conclusion:
-          learningRoadmap.conclusion ||
-          "Please check your API key and network connection.",
+          "Ensure your API key is valid and try again with a smaller file if needed.",
       };
 
   return (
     <div className="min-h-screen bg-slate-900 text-white p-6 sm:p-10">
+      {/* Header (Logout/Back) */}
       <header className="flex justify-between items-center mb-6">
         <button
           onClick={() => navigate("/")}
@@ -98,17 +193,15 @@ export default function DashboardPage() {
           <ArrowLeft className="w-5 h-5" />
           Back to Input
         </button>
-        <div className="flex items-center gap-4">
-          <button
-            onClick={() => {
-              logout();
-              navigate("/login");
-            }}
-            className="px-3 py-1 bg-red-600 rounded-lg hover:bg-red-700 transition"
-          >
-            Logout
-          </button>
-        </div>
+        <button
+          onClick={() => {
+            logout();
+            navigate("/login");
+          }}
+          className="px-3 py-1 bg-red-600 rounded-lg hover:bg-red-700 transition"
+        >
+          Logout
+        </button>
       </header>
 
       <main className="max-w-6xl mx-auto">
@@ -121,15 +214,12 @@ export default function DashboardPage() {
           </p>
         </div>
 
-        {/* --- GRAPH VISUALIZATION AREA --- */}
-        {/* Pass data to the graph component, ensuring consistency in skill naming */}
-        <SkillGraph
-          targetRole={targetRole}
-          requiredSkills={requiredSkills.map((s) => formatSkill(s))}
-          userSkills={userSkills.map((s) => formatSkill(s))}
-          missingSkills={missingSkills.map((s) => formatSkill(s))}
+        {/* --- GRAPH ACCORDION --- */}
+        <GraphAccordion
+          isVisible={isGraphOpen}
+          toggleVisibility={() => setIsGraphOpen(!isGraphOpen)}
+          results={results}
         />
-        {/* --------------------------------- */}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mt-8">
           {/* Missing/Current Skills Summary (Left Column) */}
@@ -170,8 +260,7 @@ export default function DashboardPage() {
                 </ul>
               ) : (
                 <p className="text-green-300 font-semibold">
-                  You possess all the core skills for this target role! Focus on
-                  advanced concepts.
+                  You possess all the core skills for this target role!
                 </p>
               )}
             </div>
@@ -197,48 +286,12 @@ export default function DashboardPage() {
 
           {/* Generated Roadmap (Right Column) */}
           <div className="lg:col-span-2">
-            <div className="bg-slate-700 p-8 rounded-xl border border-blue-500/50 shadow-xl">
-              <h3 className="text-2xl font-bold text-blue-300 mb-4 flex items-center gap-3">
-                <BookOpen className="w-7 h-7" />
-                Personalized Learning Roadmap
-              </h3>
-
-              {/* Roadmap Summary */}
-              <p className="text-slate-200 mb-6 italic">
-                {roadmapData.summary}
-              </p>
-
-              {/* Roadmap Steps */}
-              <div className="space-y-6">
-                {roadmapData.steps.map((step, index) => (
-                  <div key={index} className="border-l-4 border-blue-400 pl-4">
-                    <h4 className="text-xl font-semibold text-white mb-2">
-                      Step {index + 1}: {formatSkill(step.skill)} Mastery
-                    </h4>
-                    <p className="text-slate-300 mb-2">{step.goal}</p>
-                    {step.resourceURL && (
-                      <a
-                        href={step.resourceURL}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-2 text-blue-300 hover:text-blue-200 text-sm font-medium transition-colors"
-                      >
-                        {step.resourceTitle || "View Resource"}
-                        <ExternalLink className="w-4 h-4" />
-                      </a>
-                    )}
-                  </div>
-                ))}
-              </div>
-
-              {/* Roadmap Conclusion */}
-              <div className="mt-8 pt-4 border-t border-slate-600">
-                <h4 className="text-lg font-semibold text-slate-300 mb-2">
-                  Next Steps
-                </h4>
-                <p className="text-slate-400">{roadmapData.conclusion}</p>
-              </div>
-            </div>
+            {/* --- ROADMAP ACCORDION --- */}
+            <RoadmapAccordion
+              isVisible={isRoadmapOpen}
+              toggleVisibility={() => setIsRoadmapOpen(!isRoadmapOpen)}
+              roadmapData={roadmapData}
+            />
           </div>
         </div>
       </main>

@@ -1,7 +1,25 @@
+// client/src/components/SkillGraph.jsx (FINAL CORRECTED VERSION)
+
 import React, { useRef, useEffect } from "react";
 import * as d3 from "d3";
 
-// Graph component receives the skills data from the DashboardPage
+// Helper to format text for visual display (Title Case)
+const formatNodeLabel = (label) => {
+  // Handle the central goal node specifically (e.g., "GO DEVELOPER GOAL")
+  if (label.includes(" GOAL")) {
+    return label.replace(" GOAL", "");
+  }
+  // Simple Title Case for skills (ensuring clean display)
+  const formatted = label.replace(/_/g, " ").toLowerCase();
+  if (formatted.includes(" ")) {
+    return formatted
+      .split(" ")
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(" ");
+  }
+  return formatted.charAt(0).toUpperCase() + formatted.slice(1);
+};
+
 const SkillGraph = ({
   requiredSkills,
   userSkills,
@@ -10,28 +28,27 @@ const SkillGraph = ({
 }) => {
   const svgRef = useRef();
 
-  // D3 relies on raw DOM manipulation, so we use useEffect
   useEffect(() => {
+    // Data passed here is ALREADY UPPERCASE
     if (!requiredSkills || requiredSkills.length === 0) return;
 
-    // 1. Prepare Data for D3
+    // --- Data Preparation ---
 
-    // Combine all skills and normalize their case for comparison
-    const allSkillsSet = new Set([
-      ...requiredSkills.map((s) => s.toUpperCase()),
-      ...userSkills.map((s) => s.toUpperCase()),
-    ]);
+    const normalizedRequired = requiredSkills;
+    const normalizedUser = userSkills;
+    const normalizedMissing = missingSkills;
+
+    const allSkillsSet = new Set([...normalizedRequired, ...normalizedUser]);
     const allSkills = Array.from(allSkillsSet);
 
     // Map skills to nodes
     const nodes = allSkills.map((skill) => {
-      const isMissing = missingSkills.includes(skill);
-      const isUserSkill = userSkills.includes(skill);
+      const isMissing = normalizedMissing.includes(skill);
+      const isUserSkill = normalizedUser.includes(skill);
 
-      let group = 0;
+      let group = 0; // Default (unused, required)
       if (isMissing) group = 2; // Missing (Red)
       else if (isUserSkill) group = 1; // User Has (Green)
-      else group = 0; // Required but not identified (Grey/Blue)
 
       return {
         id: skill,
@@ -44,16 +61,20 @@ const SkillGraph = ({
     nodes.push({ id: goalNodeId, group: 3 });
 
     // Create links: connecting every required skill to the central goal
-    const links = requiredSkills.map((skill) => ({
-      source: skill.toUpperCase(),
+    const links = normalizedRequired.map((skill) => ({
+      source: skill,
       target: goalNodeId,
       // Thicker link for missing skills emphasizes the gap
-      value: missingSkills.includes(skill) ? 3 : 1,
+      value: normalizedMissing.includes(skill) ? 3 : 1,
     }));
+
+    const finalNodes = Array.from(
+      new Map(nodes.map((item) => [item.id, item])).values()
+    );
 
     // 2. Setup D3 Area
     const width = 800;
-    const height = 400;
+    const height = 450;
     const svg = d3
       .select(svgRef.current)
       .attr("viewBox", [0, 0, width, height]);
@@ -62,20 +83,19 @@ const SkillGraph = ({
 
     // 3. Setup Force Simulation
     const simulation = d3
-      .forceSimulation(nodes)
+      .forceSimulation(finalNodes)
       .force(
         "link",
         d3
           .forceLink(links)
           .id((d) => d.id)
           .distance(150)
-      ) // Longer links
-      .force("charge", d3.forceManyBody().strength(-400)) // Stronger repulsion
+      )
+      .force("charge", d3.forceManyBody().strength(-400))
       .force("center", d3.forceCenter(width / 2, height / 2))
-      .force("collision", d3.forceCollide().radius(20)); // Prevent overlap
+      .force("collision", d3.forceCollide().radius(20));
 
-    // Color Scale based on Group
-    // 1: Green (User Has), 2: Red (Missing), 3: Yellow (Goal)
+    // Color Scale
     const color = d3
       .scaleOrdinal()
       .domain([1, 2, 3])
@@ -84,7 +104,7 @@ const SkillGraph = ({
     // 4. Draw Links
     const link = svg
       .append("g")
-      .attr("stroke", "#94a3b8") // Slate color
+      .attr("stroke", "#94a3b8")
       .attr("stroke-opacity", 0.6)
       .selectAll("line")
       .data(links)
@@ -97,7 +117,7 @@ const SkillGraph = ({
       .attr("stroke", "#fff")
       .attr("stroke-width", 1.5)
       .selectAll("g")
-      .data(nodes)
+      .data(finalNodes)
       .join("g")
       .call(drag(simulation));
 
@@ -113,7 +133,7 @@ const SkillGraph = ({
       .attr("x", (d) => (d.id === goalNodeId ? 20 : 15))
       .attr("y", "0.31em")
       .style("font-size", (d) => (d.id === goalNodeId ? "14px" : "10px"))
-      .text((d) => d.id)
+      .text((d) => formatNodeLabel(d.id)) // Use the helper for clean text
       .attr("fill", "white")
       .attr("pointer-events", "none");
 
@@ -129,7 +149,7 @@ const SkillGraph = ({
     });
   }, [requiredSkills, userSkills, missingSkills, targetRole]);
 
-  // Drag behavior definition (allows user interaction)
+  // Drag definition (remains the same)
   const drag = (simulation) => {
     function dragstarted(event, d) {
       if (!event.active) simulation.alphaTarget(0.3).restart();
@@ -156,10 +176,7 @@ const SkillGraph = ({
   };
 
   return (
-    <div className="mt-6 bg-slate-800 p-6 rounded-xl border border-slate-700">
-      <h3 className="text-xl font-semibold text-slate-200 mb-4">
-        Dynamic Skill Relationship Map
-      </h3>
+    <div className="pt-4">
       <svg ref={svgRef} width="100%" height="450"></svg>
       <div className="flex justify-center gap-6 mt-4 text-sm text-slate-400">
         <span className="flex items-center gap-2">
@@ -167,7 +184,7 @@ const SkillGraph = ({
         </span>
         <span className="flex items-center gap-2">
           <div className="w-3 h-3 rounded-full bg-[#EF4444]"></div> Missing
-          Skills
+          Skills (Thick Link)
         </span>
         <span className="flex items-center gap-2">
           <div className="w-3 h-3 rounded-full bg-[#FCD34D]"></div> Target Goal
