@@ -27,7 +27,7 @@ An intelligent, full-stack platform that analyzes your resume or skills against 
 
 | | |
 |---|---|
-| **Project Name** | SkillBridge AI |
+| **Project Name** | AI Skill Gap Learning Platform |
 | **Impact** | Eliminates guesswork from career transitions — tells you *exactly* what to learn and *where* to learn it. |
 | **Description** | A three-tier web application where users upload their resume (PDF/DOCX) or paste raw text, select a target job role, and receive: (1) a list of skills they already have, (2) skills they are missing, and (3) a curated, AI-generated 5-step learning roadmap with free resources — all in seconds. |
 
