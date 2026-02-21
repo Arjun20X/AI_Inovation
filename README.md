@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🧠 SkillBridge AI
+# 🧠 AI Skill Gap Learning Platform
 
 ### **"Turn your resume into a roadmap."**
 
